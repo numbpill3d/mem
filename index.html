@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyborg Memory Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Courier New', monospace;
+        }
+
+        body {
+            overflow: hidden;
+            color: #0cf;
+            background-color: #111;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            position: relative;
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(0,20,40,0.7) 0%, rgba(0,10,20,0.8) 100%);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .scanline {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 255, 0.03),
+                rgba(0, 255, 255, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            animation: scanlines 0.2s linear infinite;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        @keyframes scanlines {
+            0% {
+                background-position: 0 0;
+            }
+            100% {
+                background-position: 0 4px;
+            }
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            width: 100%;
+            padding: 20px;
+            z-index: 1;
+        }
+
+        .status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(90deg, #111 0%, #224 50%, #111 100%);
+            color: #0cf;
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #0cf;
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+            z-index: 1;
+        }
+
+        .status-bar::before {
+            content: "[SYS:ACTIVE]";
+            color: #0f0;
+        }
+
+        .status-bar::after {
+            content: "SEC-LEVEL: ALPHA";
+            color: #f00;
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(90deg, #111 0%, #224 50%, #111 100%);
+            color: #0cf;
+            font-size: 0.8rem;
+            padding: 5px 10px;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #0cf;
+            box-shadow: 0 0 10px rgba(0, 200, 255, 0.5);
+            z-index: 1;
+        }
+
+        .date-time {
+            margin-right: 20px;
+        }
+
+        .memory-hub {
+            background: linear-gradient(145deg, #333 0%, #222 100%);
+            border: 2px solid #0cf;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 200, 255, 0.5), 
+                        inset 0 0 10px rgba(0, 200, 255, 0.2);
+            width: 100%;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            backdrop-filter: blur(5px);
+        }
+
+        .hub-header {
+            background: linear-gradient(90deg, #112 0%, #224 100%);
+            color: #0cf;
+            padding: 10px 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #0cf;
+        }
+
+        .tab-container {
+            display: flex;
+            background: linear-gradient(90deg, #112 0%, #224 50%, #112 100%);
+            border-bottom: 1px solid #0cf;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: none;
+            color: #0cf;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            border-right: 1px solid #0af;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tab:hover {
+            background-color: rgba(0, 200, 255, 0.2);
+        }
+
+        .tab.active {
+            background: linear-gradient(180deg, rgba(0, 200, 255, 0.3) 0%, rgba(0, 100, 255, 0.1) 100%);
+            color: #fff;
+            box-shadow: inset 0 0 10px rgba(0, 200, 255, 0.5);
+        }
+
+        .tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: #0ff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+        }
+
+        .tab-content {
+            padding: 20px;
+            background-color: rgba(10, 20, 30, 0.8);
+            flex: 1;
+            overflow-y: auto;
+            max-height: 60vh;
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .content-section {
+            margin-bottom: 20px;
+        }
+
+        .content-section h3 {
+            color: #0ff;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid #0af;
+            padding-bottom: 5px;
+        }
+
+        .content-section p {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .file-item, .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: rgba(0, 50, 100, 0.3);
+            border-left: 3px solid #0cf;
+            transition: all 0.3s ease;
+        }
+
+        .file-item:hover, .log-item:hover {
+            background: rgba(0, 100, 200, 0.3);
+            transform: translateX(5px);
+            cursor: pointer;
+        }
+
+        .file-icon, .log-icon {
+            margin-right: 10px;
+        }
+
+        .file-info, .log-info {
+            flex: 1;
+        }
+
+        .file-size, .log-date {
+            color: #0aa;
+            font-size: 0.8rem;
+        }
+
+        .terminal {
+            background-color: rgba(0, 20, 30, 0.9);
+            border: 1px solid #0af;
+            padding: 10px;
+            font-family: 'Courier New', monospace;
+            color: #0f0;
+            height: 200px;
+            overflow-y: auto;
+        }
+
+        .terminal-line {
+            margin-bottom: 5px;
+        }
+
+        .terminal-prompt {
+            color: #0cf;
+        }
+
+        .terminal-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            outline: none;
+            padding: 5px 0;
+        }
+
+        .terminal-input::before {
+            content: '> ';
+            color: #0cf;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .status-item {
+            background: rgba(0, 50, 100, 0.3);
+            padding: 10px;
+            border-left: 3px solid #0cf;
+        }
+
+        .status-name {
+            color: #0ff;
+            margin-bottom: 5px;
+        }
+
+        .status-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(0, 100, 200, 0.3);
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .progress-value {
+            height: 100%;
+            background: linear-gradient(90deg, #00a 0%, #0cf 50%, #0ff 100%);
+            width: 0%;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 5px rgba(0, 200, 255, 0.8);
+        }
+
+        .blink {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .memory-hub {
+                max-width: 95%;
+            }
+            
+            .tab {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+            
+            .status-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            }
+        }
+
+        @media (max-width: 480px) {
+            .tab-container {
+                flex-wrap: wrap;
+            }
+            
+            .tab {
+                flex: 1 0 33%;
+                text-align: center;
+                font-size: 0.8rem;
+                padding: 8px 5px;
+            }
+            
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <div class="overlay"></div>
+    <div class="scanline"></div>
+    
+    <div class="status-bar">
+        <span class="memory-status">MEM: <span id="memory-usage">457.2</span> MB</span>
+        <span class="uptime">UPTIME: <span id="uptime">14:27:33</span></span>
+    </div>
+    
+    <div class="container">
+        <div class="memory-hub">
+            <div class="hub-header">
+                <span>[CYBORG MEMORY HUB v2.45]</span>
+                <span id="access-level">ACCESS: ADMIN</span>
+            </div>
+            
+            <div class="tab-container">
+                <button class="tab active" data-tab="about">[ ABOUT ]</button>
+                <button class="tab" data-tab="files">[ FILES ]</button>
+                <button class="tab" data-tab="logs">[ LOGS ]</button>
+                <button class="tab" data-tab="system">[ SYSTEM ]</button>
+                <button class="tab" data-tab="terminal">[ TERMINAL ]</button>
+            </div>
+            
+            <div id="about" class="tab-content active">
+                <div class="content-section">
+                    <h3>// CYBORG MEMORY HUB</h3>
+                    <p>Welcome to the Cyborg Memory Hub v2.45. This secure interface provides access to core memory modules and system functions.</p>
+                    <p>Security Level: <span style="color: #f00;">ALPHA</span></p>
+                    <p>This interface is protected by quantum encryption and neurobiological authentication.</p>
+                </div>
+                
+                <div class="content-section">
+                    <h3>// STATS</h3>
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-name">Memory Integrity</div>
+                            <div class="status-value">97.3%</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 97.3%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Neural Sync</div>
+                            <div class="status-value">86.9%</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 86.9%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">System Load</div>
+                            <div class="status-value">42.1%</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 42.1%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Security Status</div>
+                            <div class="status-value" style="color: #0f0;">SECURE</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="files" class="tab-content">
+                <div class="content-section">
+                    <h3>// MEMORY ARCHIVES</h3>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[DAT]</div>
+                        <div class="file-info">cortex_backup_20250428.dat</div>
+                        <div class="file-size">384.2 MB</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[MEM]</div>
+                        <div class="file-info">neural_pattern_map.mem</div>
+                        <div class="file-size">127.8 MB</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[SYN]</div>
+                        <div class="file-info">synapse_remap_protocol.syn</div>
+                        <div class="file-size">56.3 MB</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[CFG]</div>
+                        <div class="file-info">security_protocols.cfg</div>
+                        <div class="file-size">18.5 MB</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[IMG]</div>
+                        <div class="file-info">visual_memory_cache.img</div>
+                        <div class="file-size">235.9 MB</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[AUD]</div>
+                        <div class="file-info">audio_memory_segments.aud</div>
+                        <div class="file-size">164.7 MB</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="logs" class="tab-content">
+                <div class="content-section">
+                    <h3>// SYSTEM LOGS</h3>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[SYS]</div>
+                        <div class="log-info">System boot sequence completed</div>
+                        <div class="log-date">05-11-2025 08:47:12</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[SEC]</div>
+                        <div class="log-info">Security protocols initialized</div>
+                        <div class="log-date">05-11-2025 08:47:23</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[MEM]</div>
+                        <div class="log-info">Memory integrity check: PASSED</div>
+                        <div class="log-date">05-11-2025 08:47:45</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[NET]</div>
+                        <div class="log-info">Neural network synced</div>
+                        <div class="log-date">05-11-2025 08:48:02</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[SYS]</div>
+                        <div class="log-info">Operating parameters optimized</div>
+                        <div class="log-date">05-11-2025 09:15:37</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[SEC]</div>
+                        <div class="log-info">Unauthorized access attempt blocked: 192.168.1.45</div>
+                        <div class="log-date">05-11-2025 10:23:18</div>
+                    </div>
+                    
+                    <div class="log-item">
+                        <div class="log-icon">[MEM]</div>
+                        <div class="log-info">Memory defragmentation completed</div>
+                        <div class="log-date">05-11-2025 11:42:56</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="system" class="tab-content">
+                <div class="content-section">
+                    <h3>// SYSTEM STATUS</h3>
+                    
+                    <div class="status-grid">
+                        <div class="status-item">
+                            <div class="status-name">CPU Load</div>
+                            <div class="status-value">37.8%</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 37.8%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Memory Utilization</div>
+                            <div class="status-value">62.4%</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 62.4%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Temperature</div>
+                            <div class="status-value">36.7°C</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 36.7%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Power Consumption</div>
+                            <div class="status-value">145W</div>
+                            <div class="progress-bar">
+                                <div class="progress-value" style="width: 48.3%"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Network Status</div>
+                            <div class="status-value" style="color: #0f0;">CONNECTED</div>
+                        </div>
+                        
+                        <div class="status-item">
+                            <div class="status-name">Last Backup</div>
+                            <div class="status-value">4h 23m ago</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="content-section">
+                    <h3>// ACTIVE PROCESSES</h3>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[PRC]</div>
+                        <div class="file-info">neural_sync.exe</div>
+                        <div class="file-size">RUNNING</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[PRC]</div>
+                        <div class="file-info">mem_integrity.exe</div>
+                        <div class="file-size">RUNNING</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[PRC]</div>
+                        <div class="file-info">sec_monitor.exe</div>
+                        <div class="file-size">RUNNING</div>
+                    </div>
+                    
+                    <div class="file-item">
+                        <div class="file-icon">[PRC]</div>
+                        <div class="file-info">sys_diagnostics.exe</div>
+                        <div class="file-size">IDLE</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="terminal" class="tab-content">
+                <div class="content-section">
+                    <h3>// COMMAND TERMINAL</h3>
+                    
+                    <div class="terminal">
+                        <div class="terminal-line">Initializing secure terminal...</div>
+                        <div class="terminal-line">CyborgOS v3.7.2 [Build 20250411]</div>
+                        <div class="terminal-line">Type 'help' for available commands.</div>
+                        <div class="terminal-line"><span class="terminal-prompt">root@cyborg:~#</span> connect --neural</div>
+                        <div class="terminal-line">Neural interface connected. Bandwidth: 1.2Gbps</div>
+                        <div class="terminal-line"><span class="terminal-prompt">root@cyborg:~#</span> mem --status</div>
+                        <div class="terminal-line">Memory modules status: ONLINE</div>
+                        <div class="terminal-line">Memory integrity: 97.3%</div>
+                        <div class="terminal-line">Utilized: 457.2MB / 734.1MB</div>
+                        <div class="terminal-line"><span class="terminal-prompt">root@cyborg:~#</span> sec --scan</div>
+                        <div class="terminal-line">Initiating security scan...</div>
+                        <div class="terminal-line">Scan complete. No threats detected.</div>
+                        <div class="terminal-line">Quantum encryption: ACTIVE</div>
+                        <div class="terminal-line"><span class="terminal-prompt">root@cyborg:~#</span> <span class="blink">_</span></div>
+                    </div>
+                    
+                    <div style="display: flex; margin-top: 10px;">
+                        <span class="terminal-prompt">root@cyborg:~#</span>
+                        <input type="text" class="terminal-input" placeholder="Enter command...">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <span class="status">CORE: <span style="color: #0f0;">STABLE</span></span>
+        <span class="date-time" id="datetime">2025-05-11 14:27:33</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+        
+        // Terminal input functionality
+        const terminalInput = document.querySelector('.terminal-input');
+        const terminal = document.querySelector('.terminal');
+        
+        terminalInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const command = terminalInput.value;
+                const newLine = document.createElement('div');
+                newLine.classList.add('terminal-line');
+                newLine.innerHTML = `<span class="terminal-prompt">root@cyborg:~#</span> ${command}`;
+                
+                terminal.appendChild(newLine);
+                
+                let response;
+                
+                switch(command.toLowerCase()) {
+                    case 'help':
+                        response = `Available commands: help, mem, sec, status, clear, exit`;
+                        break;
+                    case 'mem':
+                    case 'mem --status':
+                        response = `Memory modules status: ONLINE\nMemory integrity: 97.3%\nUtilized: 457.2MB / 734.1MB`;
+                        break;
+                    case 'sec':
+                    case 'sec --status':
+                        response = `Security status: SECURE\nFirewall: ACTIVE\nEncryption: QUANTUM`;
+                        break;
+                    case 'sec --scan':
+                        response = `Initiating security scan...\nScan complete. No threats detected.\nQuantum encryption: ACTIVE`;
+                        break;
+                    case 'status':
+                        response = `System status: OPERATIONAL\nCPU: 37.8%\nMemory: 62.4%\nTemperature: 36.7°C\nNetwork: CONNECTED`;
+                        break;
+                    case 'clear':
+                        terminal.innerHTML = '';
+                        terminalInput.value = '';
+                        return;
+                    case 'exit':
+                        response = `Terminating session...\nSession terminated.`;
+                        break;
+                    default:
+                        response = `Unknown command: '${command}'. Type 'help' for available commands.`;
+                }
+                
+                response.split('\n').forEach(line => {
+                    const responseLine = document.createElement('div');
+                    responseLine.classList.add('terminal-line');
+                    responseLine.textContent = line;
+                    terminal.appendChild(responseLine);
+                });
+                
+                terminalInput.value = '';
+                
+                // Auto scroll to the bottom
+                terminal.scrollTop = terminal.scrollHeight;
+            }
+        });
+        
+        // Update date and time
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                year: 'numeric', 
+                month: '2-digit', 
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            };
+            
+            let dateTimeStr = now.toLocaleString('en-US', options)
+                .replace(',', '')
+                .replace(/(\d+)\/(\d+)\/(\d+)/, '$3-$1-$2');
+            
+            document.getElementById('datetime').textContent = dateTimeStr;
+        }
+        
+        setInterval(updateDateTime, 1000);
+        updateDateTime();
+        
+        // Update uptime
+        let seconds = 0;
+        function updateUptime() {
+            seconds++;
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            const uptimeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            document.getElementById('uptime').textContent = uptimeStr;
+        }
+        
+        setInterval(updateUptime, 1000);
+        
+        // Random memory usage fluctuation
+        function updateMemoryUsage() {
+            const currentUsage = parseFloat(document.getElementById('memory-usage').textContent);
+            const fluctuation = (Math.random() - 0.5) * 2;
+            const newUsage = Math.max(400, Math.min(500, currentUsage + fluctuation)).toFixed(1);
+            document.getElementById('memory-usage').textContent = newUsage;
+        }
+        
+        setInterval(updateMemoryUsage, 3000);
+        
+        // Three.js Background
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bg-canvas'), alpha: true });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        
+        // Create memory chips
+        const memoryChips = [];
+        const chipGeometry = new THREE.BoxGeometry(1, 0.1, 1.5);
+        
+        for (let i = 0; i < 50; i++) {
+            const material = new THREE.MeshStandardMaterial({
+                color: 0x00aaff,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0x003366,
+                emissiveIntensity: 0.2
+            });
+            
+            const chip = new THREE.Mesh(chipGeometry, material);
+            
+            // Position in a spiral
+            const angle = i * 0.2;
+            const radius = 5 + i * 0.1;
+            const x = Math.cos(angle) * radius;
+            const z = Math.sin(angle) * radius;
+            const y = (i - 25) * 0.3;
+            
+            chip.position.set(x, y, z);
+            chip.rotation.x = Math.random() * Math.PI;
+            chip.rotation.y = Math.random() * Math.PI;
+            
+            memoryChips.push({
+                mesh: chip,
+                rotSpeed: 0.01 + Math.random() * 0.01,
+                floatSpeed: 0.005 + Math.random() * 0.005,
+                floatDir: Math.random() > 0.5 ? 1 : -1,
+                floatAmount: 0
+            });
+            
+            scene.add(chip);
+        }
+        
+        // Add lights
+        const ambientLight = new THREE.AmbientLight(0x222266, 0.5);
+        scene.add(ambientLight);
+        
+        const directionalLight = new THREE.DirectionalLight(0x00aaff, 1);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+        
+        const blueLight = new THREE.PointLight(0x0044ff, 1, 10);
+        blueLight.position.set(-5, 2, 3);
+        scene.add(blueLight);
+        
+        const cyanLight = new THREE.PointLight(0x00ffff, 1, 10);
+        cyanLight.position.set(5, -2, -3);
+        scene.add(cyanLight);
+        
+        // Position camera
+        camera.position.z = 15;
+        camera.position.y = 0;
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Rotate and float memory chips
+            memoryChips.forEach(chip => {
+                chip.mesh.rotation.x += chip.rotSpeed;
+                chip.mesh.rotation.z += chip.rotSpeed * 0.7;
+                
+                chip.floatAmount += chip.floatSpeed * chip.floatDir;
+                if (Math.abs(chip.floatAmount) > 0.2) {
+                    chip.floatDir *= -1;
+                }
+                
+                chip.mesh.position.y += chip.floatSpeed * chip.floatDir;
+            });
+            
+            // Slowly rotate the camera around the scene
+            const timer = Date.now() * 0.0001;
+            camera.position.x = Math.cos(timer) * 20;
+            camera.position.z = Math.sin(timer) * 20;
+            camera.lookAt(scene.position);
+            
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
